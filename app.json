@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "global-pay",
+    "name": "Global Pay",
     "slug": "global-pay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.jpeg",
     "scheme": "global-pay",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -25,6 +25,12 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6d20342e-c4c1-49a6-a06e-02fdf3f5f386"
+      }
+    }
   }
 }

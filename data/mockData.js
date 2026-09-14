@@ -167,3 +167,42 @@ export const CATEGORIES = [
     ],
   },
 ];
+
+export const USER_SUBSCRIPTIONS = {
+  current: [
+    {
+      id: "us1",
+      name: "Netflix Premium",
+      price: "$20/mo",
+      image: getFavicon("netflix.com"),
+      status: "Active",
+      nextBilling: "Oct 15, 2026",
+    },
+    {
+      id: "us2",
+      name: "ChatGPT Plus",
+      price: "$20/mo",
+      image: getFavicon("chatgpt.com"),
+      status: "Active",
+      nextBilling: "Oct 18, 2026",
+    },
+  ],
+  expired: [
+    {
+      id: "ex1",
+      name: "Spotify Premium",
+      price: "$11/mo",
+      image: getFavicon("spotify.com"),
+      status: "Expired",
+      expiredOn: "Aug 01, 2026",
+    },
+    {
+      id: "ex2",
+      name: "Prime Video",
+      price: "$12/mo",
+      image: getFavicon("primevideo.com"),
+      status: "Expired",
+      expiredOn: "Mar 10, 2026",
+    },
+  ],
+};

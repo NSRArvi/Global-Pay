@@ -7,11 +7,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Image,
-  Linking,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
@@ -31,6 +31,11 @@ export default function PaymentScreen() {
   const [phone, setPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("bkash");
   const [transactionId, setTransactionId] = useState("");
+  const [touched, setTouched] = useState({ name: false, email: false, phone: false, transactionId: false });
+
+  const handleBlur = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   // Find item by ID across all categories
   let item = null;
@@ -63,9 +68,13 @@ export default function PaymentScreen() {
   const platformFee = baseBdt * 0.1; // 10% fee
   const totalBdt = baseBdt + platformFee;
 
+  const isValidEmail = (emailStr) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr);
+  };
+
   const isValid =
     name.trim() !== "" &&
-    email.trim() !== "" &&
+    isValidEmail(email) &&
     phone.length === 10 &&
     transactionId.trim() !== "";
 
@@ -92,18 +101,18 @@ export default function PaymentScreen() {
       });
 
       if (!response.ok) throw new Error("Network response was not ok");
+      // Simulating the delay of a background network request for now
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      Alert.alert(
-        "Order Placed!",
-        `Your order for ${item.name} has been received. Our agent will reach you within 30 minutes to 1 hour.`,
-        [{ text: "OK", onPress: () => router.navigate("/(tabs)") }],
-      );
+      router.push({
+        pathname: "/payment-status",
+        params: { status: "success", itemName: item.name },
+      });
     } catch (e) {
-      Alert.alert(
-        "Error",
-        "Could not submit your order. Please check your internet connection and try again.",
-      );
+      router.push({
+        pathname: "/payment-status",
+        params: { status: "error" },
+      });
     }
   };
 
@@ -186,10 +195,20 @@ export default function PaymentScreen() {
             <TextInput
               value={name}
               onChangeText={setName}
+              onBlur={() => handleBlur("name")}
               placeholder="e.g. John Doe"
               placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
-              className="bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              className={`bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border ${
+                touched.name && name.trim() === ""
+                  ? "border-red-500"
+                  : "border-slate-200 dark:border-slate-700"
+              } text-slate-900 dark:text-white font-medium`}
             />
+            {touched.name && name.trim() === "" && (
+              <Text className="text-red-500 text-xs mt-1 ml-1">
+                Full name is required.
+              </Text>
+            )}
           </View>
 
           <View className="mb-4">
@@ -199,12 +218,26 @@ export default function PaymentScreen() {
             <TextInput
               value={email}
               onChangeText={setEmail}
+              onBlur={() => handleBlur("email")}
               placeholder="e.g. name@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
               placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
-              className="bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              className={`bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border ${
+                touched.email && !isValidEmail(email)
+                  ? "border-red-500"
+                  : "border-slate-200 dark:border-slate-700"
+              } text-slate-900 dark:text-white font-medium`}
             />
+            {touched.email && email.trim() === "" ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">
+                Email address is required.
+              </Text>
+            ) : touched.email && !isValidEmail(email) ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">
+                Please enter a valid email format.
+              </Text>
+            ) : null}
           </View>
 
           <View className="mb-8">
@@ -212,7 +245,13 @@ export default function PaymentScreen() {
               Phone Number
             </Text>
             <View className="flex-row items-center">
-              <View className="bg-slate-200 dark:bg-slate-800 px-4 py-4 rounded-l-xl border border-r-0 border-slate-200 dark:border-slate-700">
+              <View
+                className={`bg-slate-200 dark:bg-slate-800 px-4 py-4 rounded-l-xl border border-r-0 ${
+                  touched.phone && phone.length !== 10
+                    ? "border-red-500"
+                    : "border-slate-200 dark:border-slate-700"
+                }`}
+              >
                 <Text className="font-bold text-slate-700 dark:text-slate-300">
                   +880
                 </Text>
@@ -222,16 +261,27 @@ export default function PaymentScreen() {
                 onChangeText={(text) =>
                   setPhone(text.replace(/[^0-9]/g, "").slice(0, 10))
                 }
+                onBlur={() => handleBlur("phone")}
                 placeholder="1XXXXXXXXX"
                 keyboardType="numeric"
                 maxLength={10}
                 placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
-                className="flex-1 bg-white dark:bg-slate-900 px-4 py-4 rounded-r-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+                className={`flex-1 bg-white dark:bg-slate-900 px-4 py-4 rounded-r-xl border ${
+                  touched.phone && phone.length !== 10
+                    ? "border-red-500"
+                    : "border-slate-200 dark:border-slate-700"
+                } text-slate-900 dark:text-white font-medium`}
               />
             </View>
-            <Text className="text-xs text-slate-400 mt-1">
-              Enter remaining 10 digits
-            </Text>
+            {touched.phone && phone.length !== 10 ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">
+                Phone number must be exactly 10 digits.
+              </Text>
+            ) : phone.length !== 10 ? (
+              <Text className="text-xs text-slate-400 mt-1 ml-1">
+                Enter remaining 10 digits
+              </Text>
+            ) : null}
           </View>
 
           {/* Payment Method */}
@@ -250,18 +300,51 @@ export default function PaymentScreen() {
 
           <View className="mb-8">
             <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Send Money To
+            </Text>
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              onPress={async () => {
+                await Clipboard.setStringAsync("+880 1318214398");
+                Alert.alert("Copied", "Payment number copied to clipboard!");
+              }}
+              className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-4 rounded-xl border border-emerald-100 dark:border-emerald-900/50 mb-4 flex-row items-center justify-between"
+            >
+              <View>
+                <Text className="text-emerald-800 dark:text-emerald-300 font-bold text-lg tracking-wider">
+                  +880 1318214398
+                </Text>
+                <Text className="text-emerald-600 dark:text-emerald-400 text-xs mt-1 font-medium">
+                  Personal Account (Send Money)
+                </Text>
+              </View>
+              <Ionicons name="copy-outline" size={20} color="#059669" />
+            </TouchableOpacity>
+
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
               Transaction ID
             </Text>
             <TextInput
               value={transactionId}
               onChangeText={setTransactionId}
+              onBlur={() => handleBlur("transactionId")}
               placeholder="e.g. TRX123456789"
               placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
-              className="bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              className={`bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border ${
+                touched.transactionId && transactionId.trim() === ""
+                  ? "border-red-500"
+                  : "border-slate-200 dark:border-slate-700"
+              } text-slate-900 dark:text-white font-medium`}
             />
-            <Text className="text-xs text-slate-400 mt-1">
-              Enter the transaction ID after sending money.
-            </Text>
+            {touched.transactionId && transactionId.trim() === "" ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">
+                Transaction ID is required to verify payment.
+              </Text>
+            ) : (
+              <Text className="text-xs text-slate-400 mt-1 ml-1">
+                Enter the transaction ID after sending money.
+              </Text>
+            )}
           </View>
 
           {/* Pricing Summary */}

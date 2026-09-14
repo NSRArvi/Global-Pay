@@ -1,5 +1,11 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, TouchableWithoutFeedback, Animated, Vibration } from 'react-native';
+import React, { useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableWithoutFeedback,
+  Animated,
+  Vibration,
+} from "react-native";
 
 export default function HoldToConfirmButton({ onConfirm, isDark, disabled }) {
   const [isHolding, setIsHolding] = useState(false);
@@ -7,7 +13,7 @@ export default function HoldToConfirmButton({ onConfirm, isDark, disabled }) {
 
   const handlePressIn = () => {
     if (disabled) return;
-    
+
     setIsHolding(true);
     Animated.timing(fillAnim, {
       toValue: 100,
@@ -23,7 +29,7 @@ export default function HoldToConfirmButton({ onConfirm, isDark, disabled }) {
 
   const handlePressOut = () => {
     if (disabled) return;
-    
+
     setIsHolding(false);
     Animated.timing(fillAnim, {
       toValue: 0,
@@ -34,21 +40,66 @@ export default function HoldToConfirmButton({ onConfirm, isDark, disabled }) {
 
   const widthInterpolation = fillAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    outputRange: ["0%", "100%"],
   });
 
   return (
-    <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <View className={`h-16 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 relative flex-row justify-center items-center w-full shadow-sm mt-4 ${disabled ? 'opacity-50' : 'opacity-100'}`}>
-        
+    <TouchableWithoutFeedback
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <View
+        style={{
+          height: 64,
+          borderRadius: 16,
+          overflow: "hidden",
+          flexDirection: "row",
+          justifyContent: "center",
+          alignItems: "center",
+          width: "100%",
+          marginTop: 16,
+          backgroundColor: disabled
+            ? isDark
+              ? "#1e293b" // slate-800
+              : "#e2e8f0" // slate-200
+            : "#10b981", // emerald-500
+          borderColor: disabled
+            ? isDark
+              ? "#334155" // slate-700
+              : "#cbd5e1" // slate-300
+            : "transparent",
+          borderWidth: disabled ? 1 : 0,
+          opacity: disabled ? 0.6 : 1,
+        }}
+      >
         {/* Animated fill background */}
-        <Animated.View 
-          className="absolute left-0 top-0 bottom-0 bg-emerald-500" 
-          style={{ width: widthInterpolation }} 
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              backgroundColor: "#047857", // emerald-700
+            },
+            { width: widthInterpolation },
+          ]}
         />
-        
-        <Text className={`font-bold text-lg z-10 ${isHolding ? 'text-white' : 'text-slate-600 dark:text-slate-300'}`}>
-          {disabled ? 'Complete Fields to Confirm' : 'Tap and Hold to Confirm'}
+
+        <Text
+          style={{
+            fontWeight: "bold",
+            fontSize: 18,
+            zIndex: 10,
+            elevation: 10,
+            color: disabled
+              ? isDark
+                ? "#64748b" // slate-500
+                : "#94a3b8" // slate-400
+              : "#ffffff",
+          }}
+        >
+          {isHolding && !disabled ? "Holding..." : "Checkout"}
         </Text>
       </View>
     </TouchableWithoutFeedback>
