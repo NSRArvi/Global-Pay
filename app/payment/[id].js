@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,42 +9,162 @@ import {
   Platform,
   Image,
   Alert,
+  Animated,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
-import { CATEGORIES } from "../../data/mockData";
 import { StatusBar } from "expo-status-bar";
 import HoldToConfirmButton from "../../components/HoldToConfirmButton";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../context/AuthContext";
+
+const getFavicon = (domain) =>
+  `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
+
+// --- SKELETON COMPONENT ---
+const PaymentSkeleton = () => {
+  const [pulseAnim] = useState(new Animated.Value(0.3));
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View className="px-6 py-6">
+      <View className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 flex-row items-center">
+        <Animated.View
+          style={{ opacity: pulseAnim }}
+          className="w-14 h-14 rounded-2xl bg-slate-200 dark:bg-slate-800 mr-4"
+        />
+        <View className="flex-1">
+          <Animated.View
+            style={{ opacity: pulseAnim }}
+            className="w-3/4 h-5 bg-slate-200 dark:bg-slate-800 rounded-md mb-2"
+          />
+          <Animated.View
+            style={{ opacity: pulseAnim }}
+            className="w-1/2 h-4 bg-slate-200 dark:bg-slate-800 rounded-md"
+          />
+        </View>
+      </View>
+      <Animated.View
+        style={{ opacity: pulseAnim }}
+        className="w-1/3 h-6 bg-slate-200 dark:bg-slate-800 rounded-md mb-4"
+      />
+      <Animated.View
+        style={{ opacity: pulseAnim }}
+        className="w-full h-14 bg-slate-200 dark:bg-slate-800 rounded-xl mb-4"
+      />
+      <Animated.View
+        style={{ opacity: pulseAnim }}
+        className="w-full h-14 bg-slate-200 dark:bg-slate-800 rounded-xl mb-4"
+      />
+    </View>
+  );
+};
+// --------------------------
 
 export default function PaymentScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
+  const { user } = useAuth();
 
   // Form State
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(user?.user_metadata?.full_name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.user_metadata?.phone || "");
+
+  // New Subscription Fields
+  const [accountEmail, setAccountEmail] = useState("");
+  const [orderType, setOrderType] = useState("New");
+  const [duration, setDuration] = useState("1 Month");
+  const [senderNumber, setSenderNumber] = useState("");
+  const [additionalNotes, setAdditionalNotes] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState("bkash");
   const [transactionId, setTransactionId] = useState("");
-  const [touched, setTouched] = useState({ name: false, email: false, phone: false, transactionId: false });
+  const [touched, setTouched] = useState({
+    name: false,
+    email: false,
+    phone: false,
+    transactionId: false,
+    senderNumber: false,
+  });
+
+  const [item, setItem] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchItem();
+  }, [id]);
+
+  const fetchItem = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("services")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      setItem(data);
+    } catch (error) {
+      console.error("Error fetching service:", error);
+      setItem(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleBlur = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
-  // Find item by ID across all categories
-  let item = null;
-  for (const cat of CATEGORIES) {
-    const found = cat.items.find((i) => i.id === id);
-    if (found) {
-      item = found;
-      break;
-    }
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        className="flex-1 bg-slate-50 dark:bg-slate-950"
+        edges={["top"]}
+      >
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <View className="px-4 py-4 flex-row items-center border-b border-slate-200 dark:border-slate-800">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-2 -ml-2 rounded-full"
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={isDark ? "#fff" : "#0f172a"}
+            />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1">
+            Checkout
+          </Text>
+        </View>
+        <PaymentSkeleton />
+      </SafeAreaView>
+    );
   }
 
   if (!item) {
@@ -58,8 +178,8 @@ export default function PaymentScreen() {
     );
   }
 
-  // Parse price logic: $15/mo -> 15
-  const rawPriceStr = item.price.replace(/[^0-9.]/g, "");
+  // Parse price logic: $15/mo -> 15 or numeric price
+  const rawPriceStr = String(item.price || 0).replace(/[^0-9.]/g, "");
   const usdPrice = parseFloat(rawPriceStr) || 0;
 
   // Math logic
@@ -76,43 +196,71 @@ export default function PaymentScreen() {
     name.trim() !== "" &&
     isValidEmail(email) &&
     phone.length === 10 &&
+    senderNumber.length === 10 &&
     transactionId.trim() !== "";
 
   const handleConfirmPurchase = async () => {
-    const FORMSPREE_ENDPOINT = "https://formspree.io/f/mdeorqvn";
-
+    setIsSubmitting(true);
     const orderData = {
-      subject: `New Order: ${item.name} from ${name}`,
-      item: item.name,
-      basePriceUSD: usdPrice,
-      totalPaidBDT: totalBdt.toFixed(2),
-      paymentMethod: paymentMethod.toUpperCase(),
-      transactionId: transactionId,
-      customerName: name,
-      customerEmail: email,
-      customerPhone: `+880${phone}`,
+      customer_name: name,
+      customer_email: email,
+      customer_phone: `+880${phone}`,
+      account_email: accountEmail || email, // fallback to customer email
+      order_type: orderType,
+      subscription_duration: duration,
+      sender_number: `+880${senderNumber}`,
+      additional_notes: additionalNotes,
+      service_id: item.id,
+      service_name: item.name,
+      base_price_usd: usdPrice,
+      total_paid_bdt: totalBdt,
+      payment_method: paymentMethod.toUpperCase(),
+      transaction_id: transactionId,
+      status: "pending",
     };
 
     try {
-      const response = await fetch(FORMSPREE_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
-      });
+      const { error } = await supabase.from("orders").insert([orderData]);
 
-      if (!response.ok) throw new Error("Network response was not ok");
-      // Simulating the delay of a background network request for now
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        throw new Error(error.message);
+      }
 
-      router.push({
-        pathname: "/payment-status",
-        params: { status: "success", itemName: item.name },
-      });
+      setIsSubmitting(false);
+      
+      if (!user) {
+        // Auto-account creation flow for guests
+        router.push({
+          pathname: "/login",
+          params: { defaultEmail: email }
+        });
+      } else {
+        // Already authenticated
+        router.push({
+          pathname: "/payment-status",
+          params: { status: "success", itemName: item.name },
+        });
+      }
     } catch (e) {
+      setIsSubmitting(false);
       router.push({
         pathname: "/payment-status",
         params: { status: "error" },
       });
+    }
+  };
+
+  const getPaymentImage = (method) => {
+    switch (method) {
+      case "bkash":
+        return "https://logo.clearbit.com/bkash.com";
+      case "nagad":
+        return "https://logo.clearbit.com/nagad.com.bd";
+      case "rocket":
+        return "https://logo.clearbit.com/dutchbanglabank.com";
+      default:
+        return "https://logo.clearbit.com/google.com";
     }
   };
 
@@ -121,8 +269,13 @@ export default function PaymentScreen() {
     return (
       <TouchableOpacity
         onPress={() => setPaymentMethod(method)}
-        className={`px-4 py-3 rounded-xl border ${isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"} mr-2`}
+        className={`px-4 py-3 rounded-xl border flex-row items-center ${isSelected ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"} mr-2`}
       >
+        <Image
+          source={{ uri: getPaymentImage(method) }}
+          style={{ width: 24, height: 24, marginRight: 8, borderRadius: 4 }}
+          resizeMode="contain"
+        />
         <Text
           className={`font-bold ${isSelected ? "text-emerald-600 dark:text-emerald-400" : "text-slate-700 dark:text-slate-300"}`}
         >
@@ -131,6 +284,12 @@ export default function PaymentScreen() {
       </TouchableOpacity>
     );
   };
+
+  const imageSource = item.image
+    ? { uri: item.image }
+    : item.domain
+      ? { uri: getFavicon(item.domain) }
+      : { uri: "https://via.placeholder.com/150" };
 
   return (
     <SafeAreaView
@@ -168,7 +327,7 @@ export default function PaymentScreen() {
           <View className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 flex-row items-center">
             <View className="w-14 h-14 rounded-2xl overflow-hidden mr-4 bg-slate-50 dark:bg-slate-800 flex items-center justify-center border border-slate-100 dark:border-slate-700">
               <Image
-                source={{ uri: item.image }}
+                source={imageSource}
                 style={{ width: 36, height: 36 }}
                 resizeMode="contain"
               />
@@ -284,6 +443,74 @@ export default function PaymentScreen() {
             ) : null}
           </View>
 
+          {/* Subscription Details */}
+          <Text className="text-lg font-bold text-slate-900 dark:text-white mb-4 mt-2">
+            Subscription Details
+          </Text>
+
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Order Type
+            </Text>
+            <View className="flex-row">
+              <TouchableOpacity
+                onPress={() => setOrderType("New")}
+                className={`flex-1 py-3 items-center rounded-l-xl border ${orderType === "New" ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}
+              >
+                <Text
+                  className={`font-bold ${orderType === "New" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"}`}
+                >
+                  New Account
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setOrderType("Renew")}
+                className={`flex-1 py-3 items-center rounded-r-xl border border-l-0 ${orderType === "Renew" ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 border-l" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"}`}
+              >
+                <Text
+                  className={`font-bold ${orderType === "Renew" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"}`}
+                >
+                  Renew Existing
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View className="mb-4">
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Service Account Email
+            </Text>
+            <TextInput
+              value={accountEmail}
+              onChangeText={setAccountEmail}
+              placeholder="Email to use for this subscription"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
+              className="bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+            />
+            <Text className="text-xs text-slate-400 mt-1 ml-1">
+              Leave blank to use your contact email above.
+            </Text>
+          </View>
+
+          {/* <View className="mb-8">
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Duration
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              {['1 Month', '3 Months', '6 Months', '1 Year'].map(dur => (
+                <TouchableOpacity 
+                  key={dur}
+                  onPress={() => setDuration(dur)}
+                  className={`px-4 py-3 rounded-xl border mr-2 ${duration === dur ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}
+                >
+                  <Text className={`font-bold ${duration === dur ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>{dur}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View> */}
+
           {/* Payment Method */}
           <Text className="text-lg font-bold text-slate-900 dark:text-white mb-4">
             Payment Method
@@ -302,7 +529,7 @@ export default function PaymentScreen() {
             <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
               Send Money To
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               activeOpacity={0.7}
               onPress={async () => {
                 await Clipboard.setStringAsync("+880 1318214398");
@@ -320,6 +547,45 @@ export default function PaymentScreen() {
               </View>
               <Ionicons name="copy-outline" size={20} color="#059669" />
             </TouchableOpacity>
+
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Sender{" "}
+              {paymentMethod === "bkash"
+                ? "bKash"
+                : paymentMethod === "nagad"
+                  ? "Nagad"
+                  : "Rocket"}{" "}
+              Number
+            </Text>
+            <View className="flex-row items-center mb-4">
+              <View
+                className={`bg-slate-200 dark:bg-slate-800 px-4 py-4 rounded-l-xl border border-r-0 ${
+                  touched.senderNumber && senderNumber.length !== 10
+                    ? "border-red-500"
+                    : "border-slate-200 dark:border-slate-700"
+                }`}
+              >
+                <Text className="font-bold text-slate-700 dark:text-slate-300">
+                  +880
+                </Text>
+              </View>
+              <TextInput
+                value={senderNumber}
+                onChangeText={(text) =>
+                  setSenderNumber(text.replace(/[^0-9]/g, "").slice(0, 10))
+                }
+                onBlur={() => handleBlur("senderNumber")}
+                placeholder="1XXXXXXXXX"
+                keyboardType="numeric"
+                maxLength={10}
+                placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
+                className={`flex-1 bg-white dark:bg-slate-900 px-4 py-4 rounded-r-xl border ${
+                  touched.senderNumber && senderNumber.length !== 10
+                    ? "border-red-500"
+                    : "border-slate-200 dark:border-slate-700"
+                } text-slate-900 dark:text-white font-medium`}
+              />
+            </View>
 
             <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
               Transaction ID
@@ -345,6 +611,22 @@ export default function PaymentScreen() {
                 Enter the transaction ID after sending money.
               </Text>
             )}
+          </View>
+
+          <View className="mb-8">
+            <Text className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">
+              Additional Notes (Optional)
+            </Text>
+            <TextInput
+              value={additionalNotes}
+              onChangeText={setAdditionalNotes}
+              placeholder="Any special requests or instructions..."
+              placeholderTextColor={isDark ? "#475569" : "#94a3b8"}
+              multiline
+              numberOfLines={3}
+              className="bg-white dark:bg-slate-900 px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium"
+              style={{ textAlignVertical: "top" }}
+            />
           </View>
 
           {/* Pricing Summary */}
@@ -394,6 +676,7 @@ export default function PaymentScreen() {
             onConfirm={handleConfirmPurchase}
             isDark={isDark}
             disabled={!isValid}
+            isSubmitting={isSubmitting}
           />
 
           <View className="h-20" />

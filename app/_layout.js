@@ -4,6 +4,7 @@ import { useColorScheme } from "nativewind";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LogBox } from "react-native";
 import "../global.css";
+import { AuthProvider } from "../context/AuthContext";
 
 LogBox.ignoreLogs([
   "Can't perform a React state update on a component that hasn't mounted yet",
@@ -29,8 +30,10 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </AuthProvider>
   );
 }

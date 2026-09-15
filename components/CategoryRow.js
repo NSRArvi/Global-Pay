@@ -18,13 +18,14 @@ export default function CategoryRow({ category }) {
 
   // SubscriptionCard width = width * 0.42 + 16 (for marginHorizontal: 8)
   const cardWidth = width * 0.42 + 16;
+  const services = category.services || [];
 
   useEffect(() => {
     // Add a slight stagger delay based on title length to prevent rows scrolling exactly simultaneously
-    const staggerDelay = category.title.length * 150;
+    const staggerDelay = (category.title || '').length * 150;
     const timer = setInterval(() => {
-      if (category.items && category.items.length > 0) {
-        const nextIndex = (currentIndex + 1) % category.items.length;
+      if (services.length > 0) {
+        const nextIndex = (currentIndex + 1) % services.length;
         setCurrentIndex(nextIndex);
         scrollViewRef.current?.scrollTo({
           x: nextIndex * cardWidth,
@@ -34,7 +35,7 @@ export default function CategoryRow({ category }) {
     }, 4500 + staggerDelay);
 
     return () => clearInterval(timer);
-  }, [currentIndex, category]);
+  }, [currentIndex, category, services.length]);
 
   const handleScroll = (event) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -44,6 +45,8 @@ export default function CategoryRow({ category }) {
     }
   };
 
+  if (services.length === 0) return null; // Don't render empty categories
+
   return (
     <View className="mb-8">
       <View className="flex-row justify-between items-end mb-4">
@@ -52,7 +55,7 @@ export default function CategoryRow({ category }) {
         </Text>
         <TouchableOpacity
           onPress={() =>
-            router.push(`/category/${encodeURIComponent(category.title)}`)
+            router.push(`/category/${category.id}?title=${encodeURIComponent(category.title)}`)
           }
         >
           <Text className="text-emerald-500 font-semibold text-sm">
@@ -69,7 +72,7 @@ export default function CategoryRow({ category }) {
         onMomentumScrollEnd={handleScroll}
         scrollEventThrottle={16}
       >
-        {category.items.map((sub) => (
+        {services.map((sub) => (
           <SubscriptionCard key={sub.id} item={sub} isGrid={false} />
         ))}
       </ScrollView>
